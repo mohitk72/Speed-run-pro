@@ -1,10 +1,14 @@
-const CACHE_NAME = 'speedrun-max-v1';
+const CACHE_NAME = 'speedrun-max-final-v3';
 const assets = [
   './',
   './index.html',
   './manifest.json',
   './icon.png',
-  './splash.png',
+  './ramp.png',
+  './train.png',
+  './jetpack.png',
+  './boots.png',
+  './magnet.png',
   'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js'
 ];
 
