@@ -1,31 +1,17 @@
 {
-  "short_name": "SpeedRun",
+  "short_name": "SpeedRunMax",
   "name": "Speed Run Pro: Max",
   "icons": [
     {
       "src": "icon.png",
-      "type": "image/png",
       "sizes": "512x512",
+      "type": "image/png",
       "purpose": "any maskable"
     }
   ],
-  "start_url": "index.html",
-  "background_color": "#000000",
+  "start_url": "./index.html",
   "display": "standalone",
   "orientation": "portrait",
-  "theme_color": "#00ff00",
-  "screenshots": [
-    {
-      "src": "splash.png",
-      "type": "image/png",
-      "sizes": "1024x1024",
-      "form_factor": "wide"
-    },
-    {
-      "src": "splash.png",
-      "type": "image/png",
-      "sizes": "1024x1024",
-      "form_factor": "narrow"
-    }
-  ]
+  "theme_color": "#000000",
+  "background_color": "#000000"
 }
