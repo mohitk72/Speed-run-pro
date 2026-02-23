@@ -1,4 +1,4 @@
-    <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -8,6 +8,7 @@
     <style>
         body { margin: 0; overflow: hidden; background: #000; font-family: 'Courier New', Courier, monospace; }
         #ui { position: absolute; top: 20px; left: 20px; color: #fff; pointer-events: none; text-shadow: 2px 2px #000; font-size: 24px; font-weight: bold; z-index: 5; }
+        #status { font-size: 16px; color: #0ff; margin-top: 5px; height: 20px; }
         #leaderboard { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.95); color: #0f0; padding: 30px; display: none; border: 4px solid #0f0; text-align: center; pointer-events: auto; border-radius: 20px; min-width: 280px; z-index: 20; }
         .fever-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; display: none; border: 15px solid; animation: rainbow-border 0.5s linear infinite; z-index: 10; }
         @keyframes rainbow-border { 0% { border-color: #f0f; } 50% { border-color: #0ff; } 100% { border-color: #f0f; } }
@@ -15,7 +16,10 @@
     </style>
 </head>
 <body>
-    <div id="ui">SCORE: <span id="score">0</span><div id="status" style="font-size: 14px; color: #0ff;"></div></div>
+    <div id="ui">
+        SCORE: <span id="score">0</span>
+        <div id="status"></div>
+    </div>
     <div id="fever-ui" class="fever-overlay"></div>
     <div id="leaderboard">
         <h1 style="color: #f00; margin: 0;">WASTED</h1>
@@ -26,14 +30,14 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script>
         // --- GAME CONFIG ---
-        let score = 0, isGameOver = false, speed = 0.5, lane = 0;
-        let isFever = false, feverTimer = 0, isFlying = false, isJumping = false;
+        let score = 0, isGameOver = false, speed = 0.55, lane = 0;
+        let isFever = false, feverTimer = 0, isFlying = false, isBoarding = false;
         let hasMagnet = false, jumpPower = 0;
         const L_WIDTH = 3.5;
 
         // --- SCENE ---
         const scene = new THREE.Scene();
-        scene.fog = new THREE.Fog(0x000000, 10, 85);
+        scene.fog = new THREE.Fog(0x000000, 10, 90);
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
         const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
@@ -47,7 +51,8 @@
             ramp: loader.load('ramp.png'),
             jet: loader.load('jetpack.png'),
             boots: loader.load('boots.png'),
-            magnet: loader.load('magnet.png')
+            magnet: loader.load('magnet.png'),
+            board: loader.load('hoverboard.png')
         };
 
         const player = new THREE.Mesh(new THREE.BoxGeometry(1.2, 1.2, 1.2), new THREE.MeshPhongMaterial({ map: tex.player }));
@@ -58,7 +63,7 @@
         track.rotation.x = -Math.PI / 2;
         scene.add(track);
 
-        scene.add(new THREE.AmbientLight(0xffffff, 1));
+        scene.add(new THREE.AmbientLight(0xffffff, 1.2));
         camera.position.set(0, 5, 10);
         camera.lookAt(0, 1, 0);
 
@@ -70,20 +75,20 @@
             const r = Math.random();
             let m;
             
-            if (r < 0.05) { // FEVER
+            if (r < 0.04) { // FEVER
                 m = new THREE.Mesh(new THREE.SphereGeometry(1), new THREE.MeshPhongMaterial({ color: 0xff00ff, emissive: 0xff00ff }));
                 m.type = 'FEVER';
-            } else if (r < 0.1) { // JETPACK
-                m = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 0.5), new THREE.MeshPhongMaterial({ map: tex.jet, transparent: true }));
+            } else if (r < 0.08) { // JETPACK
+                m = new THREE.Mesh(new THREE.BoxGeometry(1.2, 1.2, 0.6), new THREE.MeshPhongMaterial({ map: tex.jet, transparent: true }));
                 m.type = 'JETPACK';
-            } else if (r < 0.15) { // BOOTS
-                m = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshPhongMaterial({ map: tex.boots, transparent: true }));
-                m.type = 'BOOTS';
-            } else if (r < 0.2) { // MAGNET
-                m = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshPhongMaterial({ map: tex.magnet, transparent: true }));
+            } else if (r < 0.12) { // HOVERBOARD
+                m = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.2, 1), new THREE.MeshPhongMaterial({ map: tex.board, transparent: true }));
+                m.type = 'BOARD';
+            } else if (r < 0.16) { // MAGNET
+                m = new THREE.Mesh(new THREE.BoxGeometry(1.2, 1.2, 1.2), new THREE.MeshPhongMaterial({ map: tex.magnet, transparent: true }));
                 m.type = 'MAGNET';
             } else if (r < 0.45) { // TRAIN
-                m = new THREE.Mesh(new THREE.BoxGeometry(2.8, 3.8, 15), new THREE.MeshPhongMaterial({ map: tex.train }));
+                m = new THREE.Mesh(new THREE.BoxGeometry(2.8, 3.8, 16), new THREE.MeshPhongMaterial({ map: tex.train }));
                 m.position.y = 1.9;
                 m.type = 'TRAIN';
             } else if (r < 0.55) { // RAMP
@@ -94,43 +99,38 @@
                 m.type = 'BLOCK';
             }
 
-            m.position.set((Math.floor(Math.random() * 3) - 1) * L_WIDTH, m.position.y || 0.5, -100);
+            m.position.set((Math.floor(Math.random() * 3) - 1) * L_WIDTH, m.position.y || 0.6, -110);
             scene.add(m);
             obs.push(m);
         }
-        setInterval(spawn, 500);
+        setInterval(spawn, 450);
 
         // --- CONTROLS ---
         window.addEventListener('touchstart', e => {
             const x = e.touches[0].clientX;
             const y = e.touches[0].clientY;
-            if (y < window.innerHeight / 3 && jumpPower <= 0) jumpPower = 0.3; // Tap top to jump
+            if (y < window.innerHeight / 3 && jumpPower <= 0) jumpPower = 0.35; 
             else if (x < window.innerWidth/2 && lane > -1) lane--;
             else if (x > window.innerWidth/2 && lane < 1) lane++;
         });
 
-        // --- LOOP ---
+        // --- MAIN LOOP ---
         function animate() {
             if (isGameOver) return;
 
-            // Movement
-            player.position.x += (lane * L_WIDTH - player.position.x) * 0.2;
+            player.position.x += (lane * L_WIDTH - player.position.x) * 0.22;
             
-            // Jump/Fly Physics
             if (isFlying) {
-                player.position.y += (6 - player.position.y) * 0.1;
+                player.position.y += (6.5 - player.position.y) * 0.1;
             } else {
                 player.position.y += jumpPower;
-                jumpPower -= 0.015;
-                if (player.position.y <= 0.6) {
-                    player.position.y = 0.6;
-                    jumpPower = 0;
-                }
+                jumpPower -= 0.018;
+                if (player.position.y <= 0.6) { player.position.y = 0.6; jumpPower = 0; }
             }
 
             if (isFever) {
                 feverTimer -= 16;
-                track.material.emissive.setHSL(Math.random(), 0.5, 0.1);
+                track.material.emissive.setHSL(Math.random(), 0.6, 0.1);
                 if (feverTimer <= 0) {
                     isFever = false;
                     track.material.emissive.set(0x000000);
@@ -138,28 +138,34 @@
                 }
             }
 
+            // Update Status UI
+            document.getElementById('status').innerText = 
+                (isFlying ? "🚀 JETPACK " : "") + (isBoarding ? "🛹 BOARD " : "") + (hasMagnet ? "🧲 MAGNET" : "");
+
             for (let i = obs.length - 1; i >= 0; i--) {
                 const o = obs[i];
                 o.position.z += speed;
 
-                // Magnet logic
                 if (hasMagnet && o.type !== 'TRAIN' && o.type !== 'BLOCK') {
-                    o.position.x += (player.position.x - o.position.x) * 0.1;
+                    o.position.x += (player.position.x - o.position.x) * 0.15;
                 }
 
-                if (o.position.distanceTo(player.position) < 2.5) {
-                    if (o.type === 'FEVER') { isFever = true; feverTimer = 5000; document.getElementById('fever-ui').style.display='block'; scene.remove(o); obs.splice(i,1); }
-                    else if (o.type === 'JETPACK') { isFlying = true; setTimeout(()=>isFlying=false, 5000); scene.remove(o); obs.splice(i,1); }
-                    else if (o.type === 'BOOTS') { jumpPower = 0.5; scene.remove(o); obs.splice(i,1); }
-                    else if (o.type === 'MAGNET') { hasMagnet = true; setTimeout(()=>hasMagnet=false, 8000); scene.remove(o); obs.splice(i,1); }
-                    else if (o.type === 'RAMP') { speed += 0.05; }
-                    else if (isFever) { score += 1000; scene.remove(o); obs.splice(i,1); }
-                    else if (!isFlying && player.position.y < 2 || o.type === 'TRAIN') { die(); }
+                if (o.position.distanceTo(player.position) < 2.8) {
+                    if (o.type === 'FEVER') { isFever = true; feverTimer = 6000; document.getElementById('fever-ui').style.display='block'; scene.remove(o); obs.splice(i,1); }
+                    else if (o.type === 'JETPACK') { isFlying = true; setTimeout(()=>isFlying=false, 6000); scene.remove(o); obs.splice(i,1); }
+                    else if (o.type === 'BOARD') { isBoarding = true; setTimeout(()=>isBoarding=false, 10000); scene.remove(o); obs.splice(i,1); }
+                    else if (o.type === 'MAGNET') { hasMagnet = true; setTimeout(()=>hasMagnet=false, 10000); scene.remove(o); obs.splice(i,1); }
+                    else if (o.type === 'RAMP') { speed += 0.06; }
+                    else if (isFever) { score += 1500; scene.remove(o); obs.splice(i,1); }
+                    else if (!isFlying && player.position.y < 2.5 || o.type === 'TRAIN') {
+                        if (isBoarding) { isBoarding = false; scene.remove(o); obs.splice(i,1); } 
+                        else die();
+                    }
                 }
-                if (o.position.z > 20) { scene.remove(o); obs.splice(i,1); }
+                if (o.position.z > 25) { scene.remove(o); obs.splice(i,1); }
             }
 
-            score += Math.floor(speed * 20);
+            score += Math.floor(speed * 25);
             document.getElementById('score').innerText = score;
             renderer.render(scene, camera);
             requestAnimationFrame(animate);
@@ -168,13 +174,14 @@
         function die() {
             isGameOver = true;
             document.getElementById('leaderboard').style.display = 'block';
-            const h = JSON.parse(localStorage.getItem('max_final_hi') || '[]');
+            const h = JSON.parse(localStorage.getItem('max_pro_hi') || '[]');
             h.push(score);
-            localStorage.setItem('max_final_hi', JSON.stringify(h.sort((a,b)=>b-a).slice(0,5)));
-            document.getElementById('score-list').innerHTML = h.map(s => `<p>${s}</p>`).join('');
+            localStorage.setItem('max_pro_hi', JSON.stringify(h.sort((a,b)=>b-a).slice(0,5)));
+            document.getElementById('score-list').innerHTML = h.map((s,i) => `<p>${i+1}. ${s}</p>`).join('');
         }
 
         animate();
+        if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
     </script>
 </body>
 </html>
