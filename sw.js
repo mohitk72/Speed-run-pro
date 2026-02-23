@@ -9,6 +9,7 @@ const assets = [
   './jetpack.png',
   './boots.png',
   './magnet.png',
+  './hoverboard.png',
   'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js'
 ];
 
